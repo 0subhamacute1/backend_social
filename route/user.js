@@ -2,6 +2,9 @@ const router = require("express").Router();
 const bcrypt = require("bcrypt");
 const USER = require("../model/user");
 const resHandler = require("../middleware/resHandler");
+const verifyToken = require("../middleware/verifyToken");
+const jwt = require("jsonwebtoken");
+const jwtKey = process.env.JWT_KEY;
 
 //res, code, isSuccess, msg, data
 router.post("/create", async (req, res) => {
@@ -57,7 +60,13 @@ router.post("/login", async (req, res) => {
       const validPass = await bcrypt.compare(req.body.password, user.password);
 
       if (validPass) {
-        resHandler(res, 200, true, "login successful", user);
+        jwt.sign({ user }, jwtKey, (err, token) => {
+          if (err) {
+            resHandler(res, 400, false, "token not generated", err);
+          } else {
+            resHandler(res, 200, false, "login successful", {user,token});
+          }
+        });
       } else {
         resHandler(res, 400, false, "wrong password");
       }
@@ -77,6 +86,40 @@ router.get("/userbyid/:id", async (req, res) => {
     resHandler(res, 200, true, "user found", user);
   } catch (err) {
     resHandler(res, 500, false, "internal server error", err);
+  }
+});
+
+router.post("/generateToken", async (req, res) => {
+  try {
+    let data = {
+      name: req.body.name,
+      password: req.body.password,
+    };
+
+    jwt.sign(data, jwtKey, (err, token) => {
+      if (err) {
+        resHandler(res, 400, false, "token not generated", err);
+      } else {
+        resHandler(res, 200, false, "token  generated", { token });
+      }
+    });
+  } catch (err) {
+    resHandler(res, 500, false, "internal server error", err);
+  }
+});
+
+router.post("/validateToken", verifyToken, async (req, res) => {
+  try {
+    let jwtKey = process.env.JWT_KEY;
+    jwt.verify(req.token, jwtKey, (err, authData) => {
+      if (err) {
+        resHandler(res, 403, false, "auth fail", err);
+      } else {
+        resHandler(res, 200, true, "auth success", authData);
+      }
+    });
+  } catch (err) {
+    resHandler(res, 500, false, "internal server error validateToken", err);
   }
 });
 
