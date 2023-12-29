@@ -28,7 +28,7 @@ router.post("/create", async (req, res) => {
       resHandler(res, 200, true, "user created", result);
     }
   } catch (err) {
-    resHandler(res, 500, false, err);
+    resHandler(res, 500, false, "internal server error", err);
   }
 });
 
@@ -42,14 +42,30 @@ router.get("/userlist", async (req, res) => {
         resHandler(res, 500, false, err);
       });
   } catch (err) {
-    resHandler(res, 500, false, err);
+    resHandler(res, 500, false, "internal server error", err);
   }
 });
 
 router.post("/login", async (req, res) => {
   try {
+    if (!req.body?.name) return resHandler(res, 400, false, "name empty");
+    if (!req.body?.password)
+      return resHandler(res, 400, false, "password empty");
+
+    const user = await USER.findOne({ name: req.body.name });
+    if (user) {
+      const validPass = await bcrypt.compare(req.body.password, user.password);
+
+      if (validPass) {
+        resHandler(res, 200, true, "login successful", user);
+      } else {
+        resHandler(res, 400, false, "wrong password");
+      }
+    } else {
+      resHandler(res, 400, false, "user not found");
+    }
   } catch (err) {
-    resHandler(res, 500, false, err);
+    resHandler(res, 500, false, "internal server error", err);
   }
 });
 
@@ -58,9 +74,9 @@ router.get("/userbyid/:id", async (req, res) => {
   try {
     const user = await USER.findOne({ _id: req.params.id });
     if (!user) return resHandler(res, 400, false, "user not found");
-    resHandler(res, 200, true, "user by id", user);
+    resHandler(res, 200, true, "user found", user);
   } catch (err) {
-    resHandler(res, 500, false, err);
+    resHandler(res, 500, false, "internal server error", err);
   }
 });
 
